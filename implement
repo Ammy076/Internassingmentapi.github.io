@@ -1,0 +1,50 @@
+import requests
+import json
+
+# endpoint to get user detail by first name
+@app.route("/api/users", methods=["GET"])
+def get_users_by_first_name():
+    first_name = request.args.get('first_name')
+    if not first_name:
+        abort(400, description="Missing mandatory parameter: first_name")
+
+    # Search for users with matching first_name
+    users = User.query.filter(User.first_name.like(f"{first_name}%")).all()
+
+    # If users are found, return them in a JSON response
+    if users:
+        return users_schema.jsonify(users)
+
+    # If no users are found, call the external API
+    else:
+        # Create the query parameter for the external API
+        api_url = "https://dummyjson.com/users/search"
+        params = {
+            "q": first_name
+        }
+
+        # Call the external API
+        response = requests.get(api_url, params=params)
+        
+        # If the external API succeeds, save the resulting users to the user table
+        if response.status_code == 200:
+            external_users = response.json()
+            for user_data in external_users:
+                new_user = User(
+                    first_name=user_data['first_name'],
+                    last_name=user_data['last_name'],
+                    age=user_data['age'],
+                    gender=user_data['gender'],
+                    email=user_data['email'],
+                    phone=user_data['phone'],
+                    birth_date=user_data['birth_date']
+                )
+                db.session.add(new_user)
+            db.session.commit()
+            
+            # Return the resulting users from the external API in the response
+            return jsonify(external_users)
+        
+        # If the external API fails, return an error message in the response
+        else:
+            return jsonify({"message": "External API call failed"}), response.status_code
