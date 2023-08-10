@@ -1,0 +1,13 @@
+from flask import abort
+
+# endpoint to get user detail by first name
+@app.route("/api/users", methods=["GET"])
+def get_users_by_first_name():
+    first_name = request.args.get('first_name')
+    if not first_name:
+        abort(400, description="Missing mandatory parameter: first_name")
+    users = User.query.filter_by(first_name=first_name).all()
+    if users:
+        return users_schema.jsonify(users)
+    else:
+        return jsonify({"message": "No users found with given first name"}), 404
